@@ -270,7 +270,7 @@ class CAMPARI:
 		input_file.write( "\n" )
 		input_file.write( "FMCSC_BOUNDARY 4 # 1. pbc, 2. hard-wall boundary, 3. residue-based soft wall, 4. atom-based soft wall" + "\n" )
 		input_file.write( "FMCSC_SHAPE 2 # 1. rectangular box, 2. sphere, 3. cylinder" + "\n" )
-		input_file.write( "FMCSC_SIZE" + str(self.pbc) + " # depends on 'SHAPE'. 1. 3-vector, 2. scalar, 3. two floats" + "\n" )
+		input_file.write( "FMCSC_SIZE " + str(self.pbc) + " # depends on 'SHAPE'. 1. 3-vector, 2. scalar, 3. two floats" + "\n" )
 		input_file.write( "FMCSC_RANDOMIZE 1 # minimal randomization will be done" + "\n" )
 		input_file.write( "\n" )
 		input_file.write( "FMCSC_NRSTEPS 10000000 # total number of steps including equilibration" + "\n" )
