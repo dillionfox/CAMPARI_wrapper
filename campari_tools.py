@@ -63,6 +63,7 @@ class CAMPARI:
 	def cap_protein(self):
 		"""
 		CAMPARI requires all proteins to be capped with ACE and NME. Most don't have that. Add it if needed.
+		This function requires "ace.pdb" and "nme.pdb". I can provide them upon request.
 
 		"""
 
@@ -93,7 +94,7 @@ class CAMPARI:
 		"""
 		Rosetta names all Histidines 'HIS', but really there are 2 kinds of histidines, and Rosetta 
 		makes which ever one it thinks is best. This function detects the type and renames the
-		HIS residues with the appropriate names
+		HIS residues with the appropriate names. This function relies on ROSETTA's naming scheme.
 
 		"""
 
@@ -264,7 +265,7 @@ class CAMPARI:
 		input_file.write( "FMCSC_PDB_FORMAT 1 # input format: 1. single pdb containing trajectory" + "\n" )
 		input_file.write( "FMCSC_PDB_READMODE 1 # read heavy atoms" + "\n" )
 		input_file.write( "FMCSC_PDB_HMODE 1 # read hydrogens, regenerate ones that clash" + "\n" )
-		if len(sys.argv) == 1:
+		if MODE == 'pdb':
 			input_file.write( "FMCSC_PDBFILE " + self.name + ".pdb # input file (pdb)" + "\n" )
 		input_file.write( "\n" )
 		input_file.write( "FMCSC_BOUNDARY 4 # 1. pbc, 2. hard-wall boundary, 3. residue-based soft wall, 4. atom-based soft wall" + "\n" )
