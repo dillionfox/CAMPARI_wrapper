@@ -4,15 +4,26 @@ import MDAnalysis.analysis.distances as mdad
 import subprocess
 import numpy as np
 
-pdb = sys.argv[1]
+if len(sys.argv) != 2:
+	print "USEAGE: python campari_tools.py input"
+	print "USEAGE: input is EITHER a PDB or a SEQ file"
+	print "example:"
+	print "python campari_tools.py 1ova.pdb"
+	print "or"
+	print "python campari_tools.py 1ova.seq"
+	exit()
+
+NAME = sys.argv[1].split('.')[0]
+MODE = sys.argv[1].split('.')[1]
+
 campari_home = '/home/dillion/pkg/campari/'
 
 class CAMPARI:
 
-	def __init__(self, pdb, pbc):
+	def __init__(self, pbc, pdb='NULL'):
 		self.pdb = pdb
 		self.pbc = pbc
-		self.name = pdb.split('.')[0]  
+		self.name = NAME
 
 	def check_caps(self):
 		"""
@@ -247,86 +258,103 @@ class CAMPARI:
 		"""
 
 		input_file = open(self.name+'.key','w' )
-		input_file.write( "FMCSC_SEQFILE "+ self.name + ".seq # NAME OF CAMPARI SPECIFIC SEQUENCE FILE" + "\n" )
+		input_file.write( "FMCSC_SEQFILE "+ self.name + ".seq # name of campari specific sequence file" + "\n" )
 		input_file.write( "\n" )
-		input_file.write( "FMCSC_PDBANALYZE 0 # NOT SURE" + "\n" )
-		input_file.write( "FMCSC_PDB_FORMAT 1 # SINGLE PDB FILE CONTAINING TRAJECTORY" + "\n" )
-		input_file.write( "FMCSC_PDB_READMODE 1 # READ HEAVY ATOMS" + "\n" )
-		input_file.write( "FMCSC_PDB_HMODE 1 # READ HYDROGENS, REGENERATE ONES THAT CLASH" + "\n" )
-		input_file.write( "FMCSC_PDBFILE " + self.name + ".pdb # NAME OF PDB" + "\n" )
+		input_file.write( "FMCSC_PDBANALYZE 0 # PDB- keywords are for inputs. This one is a bit ambiguous" + "\n" )
+		input_file.write( "FMCSC_PDB_FORMAT 1 # input format: 1. single pdb containing trajectory" + "\n" )
+		input_file.write( "FMCSC_PDB_READMODE 1 # read heavy atoms" + "\n" )
+		input_file.write( "FMCSC_PDB_HMODE 1 # read hydrogens, regenerate ones that clash" + "\n" )
+		if len(sys.argv) == 1:
+			input_file.write( "FMCSC_PDBFILE " + self.name + ".pdb # input file (pdb)" + "\n" )
 		input_file.write( "\n" )
-		input_file.write( "FMCSC_BOUNDARY 4 # PBC" + "\n" )
-		input_file.write( "FMCSC_SHAPE 2 # RECTANGULAR BOX" + "\n" )
-		input_file.write( "FMCSC_SIZE" + str(self.pbc) + " # LENGTH OF EDGE OF BOX" + "\n" )
-		input_file.write( "FMCSC_RANDOMIZE 1 # MINIMAL RANDOMIZATION WILL BE DONE" + "\n" )
+		input_file.write( "FMCSC_BOUNDARY 4 # 1. pbc, 2. hard-wall boundary, 3. residue-based soft wall, 4. atom-based soft wall" + "\n" )
+		input_file.write( "FMCSC_SHAPE 2 # 1. rectangular box, 2. sphere, 3. cylinder" + "\n" )
+		input_file.write( "FMCSC_SIZE" + str(self.pbc) + " # depends on 'SHAPE'. 1. 3-vector, 2. scalar, 3. two floats" + "\n" )
+		input_file.write( "FMCSC_RANDOMIZE 1 # minimal randomization will be done" + "\n" )
 		input_file.write( "\n" )
-		input_file.write( "FMCSC_NRSTEPS 40000000 # TOTAL NUMBER OF STEPS INCLUDING EQUILIBRATION" + "\n" )
-		input_file.write( "FMCSC_EQUIL 10000000 # NUMBER OF EQUILIBRATION STEPS" + "\n" )
+		input_file.write( "FMCSC_NRSTEPS 10000000 # total number of steps including equilibration" + "\n" )
+		input_file.write( "FMCSC_EQUIL 1000000 # number of equilibration steps" + "\n" )
 		input_file.write( "\n" )
-		input_file.write( "FMCSC_SC_ATTLJ 1.0 # ENABLES DISPERSIVE INTERACTIONS" + "\n" )
-		input_file.write( "FMCSC_SC_POLAR 1.0 # ENABLES PARTIAL CHARGE INTERACTIONS" + "\n" )
-		input_file.write( "FMCSC_SC_IMPSOLV 1.0 # ENABLES DIRECT MEAN FIELD INTERACTIONS AND CHARGE SCREENING" + "\n" )
+		input_file.write( "FMCSC_SC_ATTLJ 1.0 # enables dispersive interactions" + "\n" )
+		input_file.write( "FMCSC_SC_WCA 0.0 # scales Weeks-Chandler-Andersen potential" + "\n" )
+		input_file.write( "FMCSC_SC_POLAR 1.0 # enables partial charge interactions" + "\n" )
+		input_file.write( "FMCSC_SC_IMPSOLV 1.0 # enables direct mean field interactions and charge screening" + "\n" )
 		input_file.write( "\n" )
-		input_file.write( "PARAMETERS " + campari_home + "params/abs3.2_charmm36.prm # ABSINTH FORCE FIELD WITH CHARMM PARTIAL CHARGES" + "\n" )
-		input_file.write( "FMCSC_UAMODEL 0 # USE ALL ATOM MODEL, NOT UNITED ATOM" + "\n" )
-		input_file.write( "FMCSC_INTERMODEL 1 # EXCLUDE FROZEN-IN INTERACTIONS, i.e. ATOMS IN AROMATIC RINGS" + "\n" )
-		input_file.write( "FMCSC_ELECMODEL 2 # USE THE ABSINTH EXCLUSION MODEL FOR SHORT RANGE ELEECTROSTATICS" + "\n" )
-		input_file.write( "FMCSC_MODE_14 1 # EXCLUDE 1-4 INTERACTIONS" + "\n" )
-		input_file.write( "FMCSC_FUDGE_EL_14 1.0" + "\n" )
-		input_file.write( "FMCSC_FUDGE_ST_14 1.0" + "\n" )
-		input_file.write( "FMCSC_EPSRULE 2" + "\n" )
-		input_file.write( "FMCSC_SIGRULE 1" + "\n" )
-		input_file.write( "FMCSC_SC_BONDED_B 0.0" + "\n" )
-		input_file.write( "FMCSC_SC_BONDED_A 0.0" + "\n" )
-		input_file.write( "FMCSC_SC_BONDED_T 1.0" + "\n" )
-		input_file.write( "FMCSC_SC_BONDED_I 0.0" + "\n" )
-		input_file.write( "FMCSC_SC_EXTRA 0.0" + "\n" )
-		input_file.write( "FMCSC_FOSMID 0.1" + "\n" )
-		input_file.write( "FMCSC_FOSTAU 0.25" + "\n" )
-		input_file.write( "FMCSC_SCRMID 0.9" + "\n" )
-		input_file.write( "FMCSC_SCRTAU 0.5" + "\n" )
-		input_file.write( "FMCSC_SAVPROBE 2.5" + "\n" )
-		input_file.write( "FMCSC_IMPDIEL 78.2" + "\n" )
-		input_file.write( "FMCSC_SCRMODEL 2" + "\n" )
+		input_file.write( "PARAMETERS " + campari_home + "params/abs3.2_charmm36.prm # ABSINTH force field with CHARMM partial charges" + "\n" )
+		input_file.write( "FMCSC_UAMODEL 0 # use all-atom model, not united atom" + "\n" )
+		input_file.write( "FMCSC_INTERMODEL 1 # exclude frozen-in interactions, i.e. atoms in aromatic rings" + "\n" )
+		input_file.write( "FMCSC_ELECMODEL 2 # use the ABSINTH exclusion model for short range electrostatics" + "\n" )
+		input_file.write( "FMCSC_MODE_14 1 # exclude 1-4 interactions" + "\n" )
+		input_file.write( "FMCSC_FUDGE_EL_14 1.0 # scale factor for elec interactions" + "\n" )
+		input_file.write( "FMCSC_FUDGE_ST_14 1.0 # scale factor for steric interactions" + "\n" )
+		input_file.write( "FMCSC_EPSRULE 2 # NOT IN DOCUMENTATION!!!" + "\n" )
+		input_file.write( "FMCSC_SIGRULE 1 # NOT IN DOCUMENTATION!!!" + "\n" )
+		input_file.write( "FMCSC_SC_BONDED_B 0.0 # linear scaling for all bond lengths" + "\n" )
+		input_file.write( "FMCSC_SC_BONDED_A 1.0 # linear scaling for all bond angles" + "\n" )
+		input_file.write( "FMCSC_SC_BONDED_T 1.0 # linear scaling for all torsional potentials" + "\n" )
+		input_file.write( "FMCSC_SC_BONDED_I 1.0 # linear scaling for all improper dihedrals" + "\n" )
+		input_file.write( "FMCSC_SC_EXTRA 0.0 # scaling factor applied to rotatable bonds with electronic effects not captured by atomic pairwise interactions" + "\n" )
+		input_file.write( "FMCSC_SC_IPP 1.0 # scales inverse power potential" + "\n" )
+		input_file.write( "FMCSC_FOSTAU 0.25 # parameter determining the steepness of the sigmoidal interpolation for mapping SA volumes to SA states" + "\n" )
+		input_file.write( "FMCSC_FOSMID 0.1 # related to FOSTAU, but this is the 'shift' applied to the sigmoid" + "\n" )
+		input_file.write( "FMCSC_SCRMID 0.9 # just like FOSMID, but for charge screening" + "\n" )
+		input_file.write( "FMCSC_SCRTAU 0.5 # just like FOSTAU, but for charge screening" + "\n" )
+		input_file.write( "FMCSC_SAVPROBE 2.5 # IMPORTANT. size of solvation shell around atoms (Ang)." + "\n" )
+		input_file.write( "FMCSC_IMPDIEL 78.2 # 'implicit dielectric': in ABSINTH this is the parameter that controls electrostatic screening" + "\n" )
+		input_file.write( "FMCSC_SCRMODEL 2 # IMPORTANT. This determines how dielectric screening is done. Option 2 goes with IMPDIEL and localizes and strengthens specific interactions" + "\n" )
 		input_file.write( "\n" )
 		input_file.write( "FMCSC_CUTOFFMODE 4 # topology-assisted cutoffs"+"\n" )
-		input_file.write( "FMCSC_MCCUTMODE 2"+"\n" )
+		input_file.write( "FMCSC_MCCUTMODE 2 # monte carlo cutoff approach. Option 2 applies a residue level exclusion approach similar to MD"+"\n" )
 		input_file.write( "FMCSC_NBCUTOFF 10.0 # cutoff value in Angstrom for IPP/ATTLJ/DMFI"+"\n" )
 		input_file.write( "FMCSC_ELCUTOFF 14.0 # cutoff value in Angstrom for POLAR"+"\n" )
-		input_file.write( "FMCSC_LREL_MC 3"+"\n" )
+		input_file.write( "FMCSC_LREL_MC 3 # monopole-monopole int. computed explicitly. polyatomic monopole groups are represented by total charge at center of geo. dipole int skipped"+"\n" )
 		input_file.write( ""+"\n" )
-		input_file.write( "FMCSC_RIGIDFREQ 0.2"+"\n")
-		input_file.write( "FMCSC_RIGIDRDFREQ 0.4"+"\n" )
-		input_file.write( "FMCSC_RIGIDRDBUF 1.1"+"\n" )
-		input_file.write( "FMCSC_CHIFREQ 0.05"+"\n" )
-		input_file.write( "FMCSC_CHIRDFREQ 0.4"+"\n" )
-		input_file.write( "FMCSC_CHISTEPSZ 20.0"+"\n" )
-		input_file.write( "FMCSC_OMEGAFREQ 0.1"+"\n" )
-		input_file.write( "FMCSC_OMEGARDFREQ 0.1"+"\n" )
-		input_file.write( "FMCSC_OMEGARDFREQ 0.1"+"\n" )
-		input_file.write( "FMCSC_PIVOTRDFREQ 0.2"+"\n" )
-		input_file.write( "FMCSC_PIVOTSTEPSZ 10.0"+"\n" )
+		input_file.write( "FMCSC_RIGIDFREQ 0.2 # very poor description in docs. I think its the fraction of MC moves that are 'rigid'."+"\n")
+		input_file.write( "FMCSC_RIGIDRDFREQ 0.1 # randomizes a fraction of the underlying tree of possible MC moves"+"\n" )
+		input_file.write( "FMCSC_RIGIDRDBUF 1.1 # avoids a systematic bias from too many interactions with boundary potentials? it scales distances to reject moves that get close to wall"+"\n" )
+		input_file.write( "FMCSC_CHIFREQ 0.3 # fraction of all sidechain moves including a specialized move type used for analysis only"+"\n" )
+		input_file.write( "FMCSC_CHIRDFREQ 0.4 # docs not clear. I think it randomizes the tree to promote the acceptance of bigger moves"+"\n" )
+		input_file.write( "FMCSC_CHISTEPSZ 20.0 # step size for chi twists"+"\n" )
+		input_file.write( "FMCSC_CRFREQ 0.3 # frequency of concerted rotation moves"+"\n" )
+		input_file.write( "FMCSC_OMEGAFREQ 0.3 # Omega only ever takes 2 values for proline, and one for others. But small sampling is important"+"\n" )
+		input_file.write( "FMCSC_OMEGARDFREQ 0.1 # also not explained clearly, but something to do with randomizing probability tree"+"\n" )
+		input_file.write( "FMCSC_PIVOTRDFREQ 0.3 # docs not clear. I think it randomizes the tree to promote the acceptance of bigger moves (phi/psi)"+"\n" )
+		input_file.write( "FMCSC_PIVOTSTEPSZ 10.0 # maximum step size for perturbing phi/psi"+"\n" )
+		input_file.write( "FMCSC_TRANSSTEPSZ 10.0 # maximum step size for perturbing translations"+"\n" )
+		input_file.write( "FMCSC_ROTSTEPSZ 20.0 # maximum step size for perturbing rotations"+"\n" )
+		input_file.write( "FMCSC_ROTFREQ 0.1 # frequency of purely rotational moves, requiring COUPLRERIGID be false"+"\n" )
+		input_file.write( "FMCSC_PKRFREQ 0.2 # frequency of proline pucker moves"+"\n" )
+		input_file.write( "FMCSC_PKRRDFREQ 0.02 # frequency of reflection moves in proline pucke"+"\n" )
+		input_file.write( "FMCSC_PUCKERSTEP_DI 4.0 # max step size for torsions in pucker moves"+"\n" )
+		input_file.write( "FMCSC_PUCKERSTEP_AN 2.0 # max step size for angles in pucker moves"+"\n" )
+		input_file.write( "FMCSC_ALIGN 4 # how the molecule swivels relative to the C and N termini"+"\n" )
 		input_file.write( ""+"\n" )
-		input_file.write( "FMCSC_DISABLE_ANALYSIS 1"+"\n" )
-		input_file.write( "FMCSC_FLUSHTIME 2.0 # in minutes"+"\n" )
-		input_file.write( "FMCSC_SEGCALC 50"+"\n" )
-		input_file.write( "FMCSC_BBSEGFILE " + campari_home + "data/bbseg2.dat"+"\n" )
-		input_file.write( "FMCSC_DSSPCALC 50"+"\n" )
-		input_file.write( "FMCSC_INSTDSSP 0"+"\n" )
-		input_file.write( "FMCSC_ANGCALC 50"+"\n" )
-		input_file.write( "FMCSC_ENOUT 10000"+"\n" )
-		input_file.write( "FMCSC_XYZOUT 2000" + " # FREQUENCY OF SNAPSHOT WRITE OUT " + "\n" )
-		input_file.write( "FMCSC_XYZMODE 2" + " # WRITE AS TRAJECTORY (NOT PDBs) " + "\n" )
-		input_file.write( "FMCSC_XYZPDB 3"+" # CHARMM STYLE .DCD OUTPUT" + "\n" )
-		input_file.write( "FMCSC_RSTOUT 10000" + " # FREQUENCY TO OUTPUT RESTART FILES " + "\n" )
+		input_file.write( "FMCSC_DISABLE_ANALYSIS 2 # 1. all analysis and inst. output disabled. 2. all analysis disabled. 3. all inst. output disabled."+"\n" )
+		input_file.write( "FMCSC_FLUSHTIME 2.0 # how often performance estimates are given (in minutes)"+"\n" )
+		input_file.write( "FMCSC_SEGCALC 50 # how often secondary structure is determined based on phi/psi"+"\n" )
+		input_file.write( "FMCSC_BBSEGFILE " + campari_home + "data/bbseg2.dat # Ramachandran plot. used for SS determination"+"\n" )
+		input_file.write( "FMCSC_DSSPCALC 50 # how often secondary structure is estimated based on h-bond patterns"+"\n" )
+		input_file.write( "FMCSC_DSSP 0.0 # scaling factor for DSSP aligning potential"+"\n" )
+		input_file.write( "FMCSC_INSTDSSP 0 # NOT IN DOCUMENTATION!!!"+"\n" )
+		input_file.write( "FMCSC_ZSEC 0.0 # scaling factor for global secondary structure bias"+"\n" )
+		input_file.write( "FMCSC_TOR 0.0 # scaling factor for controlling external torsional bias terms"+"\n" )
+		input_file.write( "FMCSC_ANGCALC 50 # NOT IN DOCUMENTATION!!!"+"\n" )
+		input_file.write( "FMCSC_DREST 0.0 # Scaling factor for externally defined harmonic distance restraints"+"\n" )
+		input_file.write( "FMCSC_TABUL 0.0 # Scaling factor for externally defined tabulated potentials"+"\n" )
+		input_file.write( "FMCSC_POLY 0.0 # Scaling factor for restraint potentials on polymeric properties"+"\n" )
+		input_file.write( "FMCSC_ENOUT 1000 # NOT IN DOCUMENTATION!!! But it has to be how often energies are written to file"+"\n" )
+		input_file.write( "FMCSC_XYZOUT 1000" + " # how often to write coordinates to trajectory " + "\n" )
+		input_file.write( "FMCSC_XYZMODE 2" + " # (2) write as trajctory (not individual PDBs) " + "\n" )
+		input_file.write( "FMCSC_XYZPDB 3"+" # (3) is CHARMM style .dcd output" + "\n" )
+		input_file.write( "FMCSC_RSTOUT 10000" + " # how often to write restart files " + "\n" )
 		input_file.write( ""+"\n" )
-		input_file.write( "FMCSC_REFILE " + campari_home + "examples/tutorial3/tutorial3.rex"+"\n" )
-		input_file.write( "FMCSC_REPLICAS 16"+"\n" )
+		input_file.write( "FMCSC_REFILE " + campari_home + "examples/tutorial3/tutorial3.rex # this file defines the replica exchange method"+"\n" )
+		input_file.write( "FMCSC_REPLICAS 16 # desired number of replicas. NOTE: this can be overridden if MPI is used"+"\n" )
 		input_file.write( "FMCSC_REDIM 1 # the number of exchange dimensions"+"\n" )
 		input_file.write( "FMCSC_REMC 1 # enables the replica exchange method in an MPI-parallel simulation run"+"\n" )
-		input_file.write( "FMCSC_RESWAPS 15"+"\n" )
-		input_file.write( "FMCSC_RENBMODE 2 # only swap with neighboring replicas"+"\n" )
-		input_file.write( "FMCSC_REFREQ 2000"+"\n" )
+		input_file.write( "FMCSC_RESWAPS 15 # number of replicas to randomly swap every REFREQ steps"+"\n" )
+		input_file.write( "FMCSC_RENBMODE 2 # only swap with neighboring replicas (similar to hamiltonian RE)"+"\n" )
+		input_file.write( "FMCSC_REFREQ 2000 # how often to swap replicas"+"\n" )
 	
 	def run_MC(self):
 		"""
@@ -342,12 +370,18 @@ class CAMPARI:
 
 if __name__ == "__main__":
 	pbc = 40 # side length of box
-	camp = CAMPARI(pdb,pbc)
-	check = camp.check_caps()
-	if check == 1:
-		camp.cap_protein()
-	camp.rename_HIS()
-	camp.ionize()
-	camp.pdb2seq()
+	if MODE == 'seq':
+		# In this case, CAMPARI will generate a random structure
+		camp = CAMPARI(pbc)
+	elif MODE == 'pdb':
+		# If we give CAMPARI a structure, it has to meet specific criteria
+		camp = CAMPARI(pbc,pdb)
+		check = camp.check_caps()
+		if check == 1:
+			camp.cap_protein()
+		camp.rename_HIS()
+		camp.ionize()
+		camp.pdb2seq()
+
 	camp.make_input()
 	camp.run_MC()
