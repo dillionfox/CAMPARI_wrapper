@@ -10,8 +10,6 @@
 
 import sys
 import os
-import MDAnalysis as mda
-import MDAnalysis.analysis.distances as mdad
 import subprocess
 import numpy as np
 
@@ -24,9 +22,15 @@ if sys.argv[1] == '-h' or sys.argv[1] == '--h' or sys.argv[1] == '--help':
 	print "This code makes it easy to generate input files to run CAMPARI (http://campari.sourceforge.net/),"
 	print "a Monte Carlo package developed by the Pappu lab. This code is only set up generate input files"
 	print "for Replica Exchange Monte Carlo simulations with a pre-compiled, MPI version of CAMPARI"
-	print "This code can either 1. Take a CAMPARI-style .seq file and generate and run a REMC simulation,"
-	print "or it can take a pdb of a protein, add ACE and NME residues to the ends, determine the protonation"
+	print "This code can either"
+	print "1. Take a CAMPARI-style .seq file and generate and run a REMC simulation,"
+	print "2. Take a fasta file and generate a simulation for each sequence (random initial structure), or"
+	print "3. it can take a pdb of a protein, add ACE and NME residues to the ends, determine the protonation"
 	print "states of histidine and rename the residues accordingly, and neutralize the system by adding ions"
+	print 
+	print "REQUIREMENTS: Options 1 & 2 require numpy, os, sys, and subprocess"
+	print "Option 2 also requires BioPython"
+	print "Option 3 also requires MDAnalysis"
 	print 
 	h = 'y'
 h = 'n'
@@ -60,9 +64,10 @@ bbseg_path = campari_home+'data/bbseg2.dat'
 #
 class CAMPARI:
 
-	def __init__(self, pbc, pdb='NULL'):
+	def __init__(self, pbc, pdb='NULL', fasta='NULL'):
 		self.pdb = pdb
 		self.pbc = pbc
+		self.fasta = fasta
 		self.name = NAME
 
 	def check_caps(self):
@@ -193,14 +198,20 @@ class CAMPARI:
 		Sum positive and negative charges
 	
 		"""
-		positive_charge = ['ARG', 'HID', 'HIS', 'HIE', 'LYS']
+
+		print "CAMPARI doesn't consider HID to be charged..."
+		#positive_charge = ['ARG', 'HID', 'HIS', 'HIE', 'LYS']
+		positive_charge = ['ARG', 'HIS', 'HIE', 'LYS']
 		negative_charge = ['ASP', 'GLU'] 
 		plus = 0 ; minus = 0
+		seq = np.array(seq)
 		for aa in positive_charge:
 			plus+=len(np.where(seq==aa)[0])
+			print aa, len(np.where(seq==aa)[0])
 		for aa in negative_charge:
 			minus+=len(np.where(seq==aa)[0])
-		return plus-minus-1
+			print aa, -1*len(np.where(seq==aa)[0])
+		return plus-minus
 
 	def add_charge(self, sel, ion, charge):
 		"""
@@ -253,6 +264,63 @@ class CAMPARI:
 		self.name += '_ionized'
 		merged.atoms.write(self.name+'.pdb')
 		return None
+
+	def fasta2seq(self):
+		"""
+		Generate the CAMPARI specific .seq file
+
+		"""
+		from Bio import SeqIO
+
+		aa = {'C':'CYS', 'D':'ASP', 'S':'SER', 'Q':'GLN', 'K':'LYS',
+		      'I':'ILE', 'P':'PRO', 'T':'THR', 'F':'PHE', 'N':'ASN', 
+		      'G':'GLY', 'H':'HID', 'L':'LEU', 'R':'ARG', 'W':'TRP', 
+		      'A':'ALA', 'V':'VAL', 'E':'GLU', 'Y':'TYR', 'M':'MET'}
+
+		count = 0
+		for seq in SeqIO.parse(self.fasta,'fasta'):
+			if seq.id == '(null)':
+				continue
+			aa_seq = []
+			if count < 10:
+				dirname = os.getcwd() + '/seq0'+str(count)
+			else:
+				dirname = os.getcwd() + '/seq'+str(count)
+
+			if os.path.exists(dirname):
+				print "directory seq00 already exists, decide what to do with it before rerunning code. Exiting..."
+				exit()
+			else:
+				os.makedirs(dirname)
+
+			seqfile = open(dirname + '/ref.seq', 'w')
+			seqfile.write("ace\n")
+			for r in seq.seq:
+				aa_seq.append(aa[r])
+				seqfile.write(aa[r].lower() + "\n")
+			seqfile.write("nme\n")
+			print "#", count
+			charge = self.get_charge(aa_seq)
+			added = 0
+			if charge < 0:
+				for c in range(abs(charge)):
+					seqfile.write('na+ \n')
+					added+=1
+			elif charge > 0:
+				for c in range(abs(charge)):
+					seqfile.write('cl- \n')
+					added-=1
+			print "ADDED CHARGE", added
+			seqfile.write("END\n")
+			seqfile.close()
+			count += 1
+
+			self.name = dirname + '/ref'
+			self.make_input()
+		exit()
+		
+		return None
+
 	
 	def pdb2seq(self):
 		"""
@@ -281,8 +349,12 @@ class CAMPARI:
 		Generate an input script for REMC 
 
 		"""
+		ff_path = "/lustre/or-hydra/cades-bsd/df0/reflectin/abs3.2_charmm36.prm"
+		bbseg_path = "/lustre/or-hydra/cades-bsd/df0/reflectin/bbseg2.dat"
+		HREX_path = "/lustre/or-hydra/cades-bsd/df0/reflectin/HREX.rex"
+
 		input_file = open(self.name+'.key','w' )
-		input_file.write( "FMCSC_SEQFILE "+ self.name + ".seq # name of campari specific sequence file" + "\n" )
+		input_file.write( "FMCSC_SEQFILE "+ "ref" + ".seq # name of campari specific sequence file" + "\n" )
 		input_file.write( "\n" )
 		input_file.write( "FMCSC_PDBANALYZE 0 # PDB- keywords are for inputs. This one is a bit ambiguous" + "\n" )
 		input_file.write( "FMCSC_PDB_FORMAT 1 # input format: 1. single pdb containing trajectory" + "\n" )
@@ -293,10 +365,10 @@ class CAMPARI:
 		input_file.write( "\n" )
 		input_file.write( "FMCSC_BOUNDARY 4 # 1. pbc, 2. hard-wall boundary, 3. residue-based soft wall, 4. atom-based soft wall" + "\n" )
 		input_file.write( "FMCSC_SHAPE 2 # 1. rectangular box, 2. sphere, 3. cylinder" + "\n" )
-		input_file.write( "FMCSC_SIZE" + str(self.pbc) + " # depends on 'SHAPE'. 1. 3-vector, 2. scalar, 3. two floats" + "\n" )
+		input_file.write( "FMCSC_SIZE " + str(self.pbc) + " # depends on 'SHAPE'. 1. 3-vector, 2. scalar, 3. two floats" + "\n" )
 		input_file.write( "FMCSC_RANDOMIZE 1 # minimal randomization will be done" + "\n" )
 		input_file.write( "\n" )
-		input_file.write( "FMCSC_NRSTEPS 10000000 # total number of steps including equilibration" + "\n" )
+		input_file.write( "FMCSC_NRSTEPS 100000000 # total number of steps including equilibration" + "\n" )
 		input_file.write( "FMCSC_EQUIL 1000000 # number of equilibration steps" + "\n" )
 		input_file.write( "\n" )
 		input_file.write( "FMCSC_SC_ATTLJ 1.0 # enables dispersive interactions" + "\n" )
@@ -339,7 +411,6 @@ class CAMPARI:
 		input_file.write( "FMCSC_CHIFREQ 0.3 # fraction of all sidechain moves including a specialized move type used for analysis only"+"\n" )
 		input_file.write( "FMCSC_CHIRDFREQ 0.4 # docs not clear. I think it randomizes the tree to promote the acceptance of bigger moves"+"\n" )
 		input_file.write( "FMCSC_CHISTEPSZ 20.0 # step size for chi twists"+"\n" )
-		input_file.write( "FMCSC_CRFREQ 0.3 # frequency of concerted rotation moves"+"\n" )
 		input_file.write( "FMCSC_OMEGAFREQ 0.3 # Omega only ever takes 2 values for proline, and one for others. But small sampling is important"+"\n" )
 		input_file.write( "FMCSC_OMEGARDFREQ 0.1 # also not explained clearly, but something to do with randomizing probability tree"+"\n" )
 		input_file.write( "FMCSC_PIVOTRDFREQ 0.3 # docs not clear. I think it randomizes the tree to promote the acceptance of bigger moves (phi/psi)"+"\n" )
@@ -372,7 +443,7 @@ class CAMPARI:
 		input_file.write( "FMCSC_XYZPDB 3"+" # (3) is CHARMM style .dcd output" + "\n" )
 		input_file.write( "FMCSC_RSTOUT 10000" + " # how often to write restart files " + "\n" )
 		input_file.write( ""+"\n" )
-		input_file.write( "FMCSC_REFILE " + self.name + ".rex" + "# this file defines the replica exchange method"+"\n" )
+		input_file.write( "FMCSC_REFILE " + HREX_path + " # this file defines the replica exchange method"+"\n" )
 		input_file.write( "FMCSC_REPLICAS 16 # desired number of replicas. NOTE: this can be overridden if MPI is used"+"\n" )
 		input_file.write( "FMCSC_REDIM 1 # the number of exchange dimensions"+"\n" )
 		input_file.write( "FMCSC_REMC 1 # enables the replica exchange method in an MPI-parallel simulation run"+"\n" )
@@ -501,12 +572,20 @@ class CAMPARI:
 
 
 if __name__ == "__main__":
-	pbc = 40 # side length of box
+	pbc = 50 # side length of box
 
 	if MODE == 'seq':
 		# In this case, CAMPARI will generate a random structure
 		camp = CAMPARI(pbc)
+	elif MODE == 'fasta':
+		fasta = sys.argv[1]
+		# Code will use CAMPARI to generate structure for each sequence in fasta file
+		camp = CAMPARI(pbc, 'NULL', fasta)
+		# Make a new directory for each sequence in the fasta, and put input files in them so they can be run
+		camp.fasta2seq()
 	elif MODE == 'pdb':
+		import MDAnalysis as mda
+		import MDAnalysis.analysis.distances as mdad
 		# If we give CAMPARI a structure, it has to meet specific criteria
 		pdb = sys.argv[1]
 		camp = CAMPARI(pbc,pdb)
