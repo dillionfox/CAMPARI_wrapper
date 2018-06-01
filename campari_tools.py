@@ -64,11 +64,25 @@ bbseg_path = campari_home+'data/bbseg2.dat'
 #
 class CAMPARI:
 
+	def header(self):
+	
+		print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+		print "  ___   __   _  _  ____   __   ____  __    ____  __    __   __    ____  " 
+		print " / __) / _\ ( \/ )(  _ \ / _\ (  _ \(  )  (_  _)/  \  /  \ (  )  / ___) " 
+		print "( (__ /    \/ \/ \ ) __//    \ )   / )(     )( (  O )(  O )/ (_/\\___ \ " 
+		print " \___)\_/\_/\_)(_/(__)  \_/\_/(__\_)(__)   (__) \__/  \__/ \____/(____/ " 
+		print "                                                                        " 
+		print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+		print
+	
+		return None
+
 	def __init__(self, pbc, pdb='NULL', fasta='NULL'):
 		self.pdb = pdb
 		self.pbc = pbc
 		self.fasta = fasta
 		self.name = NAME
+		self.header()
 
 	def check_caps(self):
 		"""
@@ -198,19 +212,16 @@ class CAMPARI:
 		Sum positive and negative charges
 	
 		"""
-
-		print "CAMPARI doesn't consider HID to be charged..."
-		#positive_charge = ['ARG', 'HID', 'HIS', 'HIE', 'LYS']
-		positive_charge = ['ARG', 'HIS', 'HIE', 'LYS']
+		positive_charge = ['ARG', 'HID', 'HIS', 'HIE', 'LYS']
 		negative_charge = ['ASP', 'GLU'] 
 		plus = 0 ; minus = 0
 		seq = np.array(seq)
 		for aa in positive_charge:
 			plus+=len(np.where(seq==aa)[0])
-			print aa, len(np.where(seq==aa)[0])
+			#print aa, len(np.where(seq==aa)[0])
 		for aa in negative_charge:
 			minus+=len(np.where(seq==aa)[0])
-			print aa, -1*len(np.where(seq==aa)[0])
+			#print aa, -1*len(np.where(seq==aa)[0])
 		return plus-minus
 
 	def add_charge(self, sel, ion, charge):
@@ -299,18 +310,13 @@ class CAMPARI:
 				aa_seq.append(aa[r])
 				seqfile.write(aa[r].lower() + "\n")
 			seqfile.write("nme\n")
-			print "#", count
 			charge = self.get_charge(aa_seq)
-			added = 0
 			if charge < 0:
 				for c in range(abs(charge)):
 					seqfile.write('na+ \n')
-					added+=1
 			elif charge > 0:
 				for c in range(abs(charge)):
 					seqfile.write('cl- \n')
-					added-=1
-			print "ADDED CHARGE", added
 			seqfile.write("END\n")
 			seqfile.close()
 			count += 1
@@ -411,6 +417,7 @@ class CAMPARI:
 		input_file.write( "FMCSC_CHIFREQ 0.3 # fraction of all sidechain moves including a specialized move type used for analysis only"+"\n" )
 		input_file.write( "FMCSC_CHIRDFREQ 0.4 # docs not clear. I think it randomizes the tree to promote the acceptance of bigger moves"+"\n" )
 		input_file.write( "FMCSC_CHISTEPSZ 20.0 # step size for chi twists"+"\n" )
+		input_file.write( "FMCSC_CRFREQ 0.3 # frequency of concerted rotation moves"+"\n" )
 		input_file.write( "FMCSC_OMEGAFREQ 0.3 # Omega only ever takes 2 values for proline, and one for others. But small sampling is important"+"\n" )
 		input_file.write( "FMCSC_OMEGARDFREQ 0.1 # also not explained clearly, but something to do with randomizing probability tree"+"\n" )
 		input_file.write( "FMCSC_PIVOTRDFREQ 0.3 # docs not clear. I think it randomizes the tree to promote the acceptance of bigger moves (phi/psi)"+"\n" )

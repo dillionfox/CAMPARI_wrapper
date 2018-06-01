@@ -5,11 +5,18 @@ import numpy as np
 import mdtraj as md
 import structure_analysis as sa
 
-"""
-Requires "structure_analysis.py", which can be found in the reflectin/structure_analysis folder
+def header():
 
-"""
+	print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+	print "  ___   __   _  _  ____   __   ____  __    ____  __    __   __    ____  " 
+	print " / __) / _\ ( \/ )(  _ \ / _\ (  _ \(  )  (_  _)/  \  /  \ (  )  / ___) " 
+	print "( (__ /    \/ \/ \ ) __//    \ )   / )(     )( (  O )(  O )/ (_/\\___ \ " 
+	print " \___)\_/\_/\_)(_/(__)  \_/\_/(__\_)(__)   (__) \__/  \__/ \____/(____/ " 
+	print "                                                                        " 
+	print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+	print
 
+	return None
 
 def read_hrex(fil):
 	"""
@@ -89,27 +96,42 @@ def reconstruct(repmat,t,T,dir):
 				f.write(peptide.xyz*10)
 	return None
 
-def analyze(dir,T):
+def analyze(dir,T,task=[]):
 	pdb = dir + '/T.pdb'
 	for replica in range(nreps):
-		print "working on T =", T[replica], "..."
+		print "analyzing T =", T[replica], "..."
 		dcd = dir + '/T_'+str(T[replica]) + '.dcd'
-		analysis = sa.SA(dcd, pdb, '_'+str(T[replica]))
+		analysis = sa.SA(dcd, pdb, '_'+str(T[replica]),task)
 		analysis.run(dir)	
 
-nreps = 16
-dirlist = sys.argv[1]
-REXfile = 'N_000_REXTRACE.dat'
-pdbname = 'N_000_yourcalc_START.pdb'
+def analyze_one(dir,T,task):
+	pdb = dir + '/T.pdb'
+	print "analyzing T =", T, "..."
+	dcd = dir + '/T_'+str(T) + '.dcd'
+	analysis = sa.SA(dcd, pdb, '_'+str(T), task)
+	analysis.run(dir)
 
-for dir in open(dirlist):
-	dir = dir.split('\n')[0] 
-	make_dcds = False
+
+if __name__ == "__main__":
+
+	nreps = 16
+	dirlist = sys.argv[1]
+	REXfile = 'N_000_REXTRACE.dat'
+	pdbname = 'N_000_yourcalc_START.pdb'
+	
 	T = read_hrex(os.getcwd() + '/' + 'HREX.rex')
-	for replica in range(nreps):
-		if os.path.isfile(dir + '/T_'+str(T[replica]) + '.dcd') != True:
-			make_dcds = True
-	if make_dcds == True:
-		[repmat,t] = rextrace(dir+'/'+REXfile)		# Read replica exchange file
-		reconstruct(repmat,t,T,dir)
-	analyze(dir,T)
+	
+	header()
+	
+	for dir in open(dirlist):
+		dir = dir.split('\n')[0]
+		make_dcds = False
+		for replica in range(nreps):
+			if os.path.isfile(dir + '/T_'+str(T[replica]) + '.dcd') != True:
+				make_dcds = True
+		if make_dcds == True:
+			[repmat,t] = rextrace(dir+'/'+REXfile)		# Read replica exchange file
+			reconstruct(repmat,t,T,dir)
+		analyze(dir,T,['PCA'])
+		#analyze_one(dir,310.0,['PCA'])
+	
